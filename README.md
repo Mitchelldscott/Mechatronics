@@ -5,13 +5,13 @@ MCEN4115/5115 Hogan's Alley Project
 ## Navigation - Mitchell/Thomas
 - Arduino D
     Inputs: 
-      IR sensor readings
+      IR sensor readings,
       Drive heading from RPi
     Outputs:
       Motor control signals x 2
 - RPi (ubuntu mate 18.04)
     Inputs:
-      Camera reading
+      Camera reading,
       Luxonis reading
     Outputs:
       Drive heading to arduino D
