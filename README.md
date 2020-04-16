@@ -1,7 +1,7 @@
 # Mechatronics
 MCEN4115/5115 Hogan's Alley Project
 
-#Systems
+# Systems
 Navigation - Mitchell/Thomas
 - Arduino D
     Inputs: 
