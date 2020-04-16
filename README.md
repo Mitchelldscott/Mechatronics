@@ -2,7 +2,7 @@
 MCEN4115/5115 Hogan's Alley Project
 
 # Systems
-Navigation - Mitchell/Thomas
+## Navigation - Mitchell/Thomas
 - Arduino D
     Inputs: 
       IR sensor readings
@@ -15,5 +15,7 @@ Navigation - Mitchell/Thomas
       Luxonis reading
     Outputs:
       Drive heading to arduino D
-Targeting - Riley/Cameron/Graham
+## Targeting - Riley/Cameron/Graham
+-
+-
 
