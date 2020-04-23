@@ -1,4 +1,4 @@
-
+// Obselete as of April 22, 2020. Kept for reference
 #include <AFMotor.h>
 #include <Wire.h>
 
