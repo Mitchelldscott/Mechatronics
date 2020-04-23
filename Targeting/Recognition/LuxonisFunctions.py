@@ -145,7 +145,7 @@ def processImage(image):
 	
         # Determine bounding box and contours - note that top left of image is (0,0)
         #g_contours,_ = cv2.findContours(green_mask,cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-        r_contours,_ = cv2.findContours(red_mask,cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        _,r_contours,_ = cv2.findContours(red_mask,cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         #pos = np.array([[None,None],[None,None]])
         #if len(g_contours) is not 0:
         #	c = max(g_contours,key=cv2.contourArea)
