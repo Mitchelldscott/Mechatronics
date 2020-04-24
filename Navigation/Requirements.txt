@@ -1,6 +1,8 @@
 Open.cv
+picamera
+pyserial
 Matplotlib
 Jupyter Notebook
 TFlite
 TF
-python 3.6?
+python 3.6/3.7?
