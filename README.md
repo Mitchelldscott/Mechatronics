@@ -12,7 +12,7 @@ MCEN4115/5115 Hogan's Alley Project
 ### RPi (ubuntu mate 18.04)
     Inputs:
       Camera reading,
-      Luxonis reading
+      Target seen (bool)
     Outputs:
       Drive heading to arduino D
 ## Targeting - Riley/Cameron/Graham
