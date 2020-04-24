@@ -1,0 +1,5 @@
+Open.cv
+Jupyter Notebook
+TFlite
+TF
+python 3.6?
