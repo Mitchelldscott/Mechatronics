@@ -3,6 +3,7 @@ picamera
 pyserial
 Matplotlib
 Jupyter Notebook
+pandas
 TFlite
 TF
 python 3.6/3.7?
