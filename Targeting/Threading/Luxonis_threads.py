@@ -3,7 +3,14 @@ from LuxonisFunctions import *
 import threading
 import time
 import serial
-# import tensorflow as tf
+import tflite_runtime.interpreter as tflite
+import numpy as np
+import cv2 as cv
+import matplotlib.pyplot as plt
+#from picamera import PiCamera
+#from picamera.array import PiRGBArray
+import serial
+from time import sleep
 
 exitFlag = 0
 isTarget = 0
@@ -67,40 +74,46 @@ class Target (threading.Thread):
 
 
 
-class dummyThread (threading.Thread):
-	def __init__(self, string):
+class Nav (threading.Thread):
+	def __init__(self, model):
 		threading.Thread.__init__(self)
-		self.string = string
-		#self.model = model
+		#self.string = string 	# For testing
+		self.model = model
 		#self.ser = ser
 
 	def run(self):
 		# Allocate Tensors
-		#interpreter = tf.lite.Interpreter(model_path=mdodel)
-		#interpreter.allocate_tensors()
+		interpreter = tflite.Interpreter(model_path=self.model)
+		interpreter.allocate_tensors()
 		
 		# Get input and output tensors
-		#input_details = interpreter.get_input_details()
-		#output_details = interpreter.get_output_details()
+		input_details = interpreter.get_input_details()
+		output_details = interpreter.get_output_details()
 				
-		# Acquire image and perform inference
-		# input_shape = input_details[0]['shape']
+		# check the type of the input tensor
+		floating_model = input_details[0]['dtype']== np.float32
 
+		# Main loop
 		while exitFlag is 0:
+		
+			# Only perform inference if there is a target
 			if isTarget is 0:
-				# Get image
-				# input_data = ...
-				# interpreter.set_tensor(input_details[0]['index], input_data)
-				
-				# Process image				
-				# interpreter.invoke()
-				
-				# Retrieve navigation direction
-				# output_data = interpreter.get_tensor(output_details[0]['index])
 
-				# Pass to arduino to map and allocate motors
-				# ser1.write()
-				print(self.string);
+				# Aquire image
+				for i in range(0,5):
+					input_data = np.asarray([cv.cvtColor(cv.imread(im_dir+'/img'+str(i)+'.jpg'),cv.COLOR_BGR2RGB)], dtype=np.float32)
+					print(input_data.shape, type(input_data[0][0][0][0]))
+
+					interpreter.set_tensor(0,input_data)
+
+					interpreter.invoke()
+
+					output_data = interpreter.get_tensor(37)
+					print(output_data)
+					print(output_details[0]['index'])
+
+					# Pass to arduino to map and allocate motors
+					# ser1.write()
 				time.sleep(1)
 			time.sleep(2)	
 
@@ -117,23 +130,9 @@ if __name__ == '__main__':
 	time.sleep(2)	
 	ser0.write(bytes('y','utf-8'))
 	
-	# Load ML model 
-	# interpreter = tf.lite.Interpreter(model_path = 'Navigation.h5') # Need to be .tflite?
-	# interpreter.allocate_tensors()
-	# input_details = interpreter.get_input_details()
-	# output_details = interpreter.get_output_details()
-	# CAPTURE IMAGE
-	# input_data = np.expand_dims(img,axis=0)
-	# interpreter.invoke()
-	# output_data = interpreter.get_tensor(output_details[0]['index'])
-	# results = np.squeeze(output_data)
-	
-	# model = tf.keras.models.load_model('Navigation.h5')	
-	
-	
 	# Create new threads
 	thread1 = Target(config,p,'CV',ser0)
-	thread2 = dummyThread('test...')
+	thread2 = Nav('Nav-Model-1.tflite')#,ser1)
 
 	# Start new threads
 	thread1.start()
