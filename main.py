@@ -7,8 +7,8 @@ import tflite_runtime.interpreter as tflite
 import numpy as np
 import cv2 as cv
 import matplotlib.pyplot as plt
-#from picamera import PiCamera
-#from picamera.array import PiRGBArray
+from picamera import PiCamera
+from picamera.array import PiRGBArray
 import serial
 from time import sleep
 
@@ -21,6 +21,7 @@ xServo = '0 '
 fire = '3 '
 deltaP = 5 # degrees
 fire_time = 6
+
 
 class Target (threading.Thread):
 	def __init__(self, config, p, method,ser):
@@ -36,7 +37,8 @@ class Target (threading.Thread):
 
 			if data is not None:
 				# Target identified
-				isTarget = 1		
+				isTarget = 1
+				print("Centering...")		
 				
 				# Check X position				
 				x_pos = data[0]
@@ -46,6 +48,7 @@ class Target (threading.Thread):
 				
 					# Construct command
 					#print(x_pos)			
+					print("Fire!")					
 					command = fire + '\n'
 					self.ser.write(command.encode('utf-8'))
 					init_time = time.time()
@@ -75,10 +78,13 @@ class Target (threading.Thread):
 
 
 class Nav (threading.Thread):
-	def __init__(self, model):
+	def __init__(self, model,camera):
 		threading.Thread.__init__(self)
 		#self.string = string 	# For testing
 		self.model = model
+		self.camera = camera
+		self.frame = PiRGBArray(self.camera, size=(640,720))
+		self.cut = [-54, -18, 18, 54]
 		#self.ser = ser
 
 	def run(self):
@@ -100,43 +106,38 @@ class Nav (threading.Thread):
 			if isTarget is 0:
 
 				# Aquire image
-				for i in range(0,5):
-					input_data = np.asarray([cv.cvtColor(cv.imread(im_dir+'/img'+str(i)+'.jpg'),cv.COLOR_BGR2RGB)], dtype=np.float32)
-					print(input_data.shape, type(input_data[0][0][0][0]))
-
-					interpreter.set_tensor(0,input_data)
-
-					interpreter.invoke()
-
-					output_data = interpreter.get_tensor(37)
-					print(output_data)
-					print(output_details[0]['index'])
-
-					# Pass to arduino to map and allocate motors
-					# ser1.write()
+				camera.start_preview()
+				self.camera.capture(self.frame,'rgb')
+				input_data = np.array([self.frame.array],dtype=np.float32)
+				interpreter.set_tensor(0,input_data)
+				interpreter.invoke()
+				heading = interpreter.get_tensor(37)
+				print(heading)
+				heading_id = int(np.digitize(x=heading, bins=self.cut))	
+				print(heading_id)
+				#self.ser.write(bytearray([1, heading_id])	
+				self.frame.truncate(0)
 				time.sleep(1)
-			time.sleep(2)	
+				
+			else:
+				#self.ser.write(disable_msg)
+				time.sleep(2)	
 
 
 if __name__ == '__main__':
-	# Setup Luxonis
-	config, p = setupLuxonis()
-	
-	# Establish serial communication
-	ser0 = serial.Serial('/dev/ttyACM0')
+	# Setup Navigation
+	camera = PiCamera(resolution=(640,720))	
 	# ser1 = serial.Serial('/dev/ttyACM1')
-
-	# Initialize the pan-tilt
-	time.sleep(2)	
-	ser0.write(bytes('y','utf-8'))
+	navigation = Nav('Nav-Model-1.tflite',camera)#,ser1)
+	navigation.start()
 	
-	# Create new threads
-	thread1 = Target(config,p,'CV',ser0)
-	thread2 = Nav('Nav-Model-1.tflite')#,ser1)
-
-	# Start new threads
-	thread1.start()
-	thread2.start()
+	# Setup Targeting
+	ser0 = serial.Serial('/dev/ttyACM0')
+	time.sleep(2) # Initialize the pan-tilt	
+	ser0.write(bytes('y','utf-8'))
+	config, p = setupLuxonis()	
+	target = Target(config,p,'CV',ser0)
+	target.start()
 	
 
 #thread1.join()

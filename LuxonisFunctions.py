@@ -18,16 +18,16 @@ def setupLuxonis():
 		print("Error Initializing device. Try to reset it.")
 		exit(1)
 
-	config = {
-		'streams': 
-		[{
-			'name': 'previewout', 
-			'max_fps': 20.0
-		},
-		{
-			'name': 'metaout',
-			'max_fps': 20.0
-		}],
+	config= {
+		'streams': ['metaout','previewout'],
+		#[{
+		#	'name': 'previewout', 
+		#	'max_fps': 20.0
+		#},
+		#{
+		#	'name': 'metaout',
+		#	'max_fps': 20.0
+		#}],
 		'depth':
 		{
 			'calibration_file': consts.resource_paths.calib_fpath,
@@ -49,9 +49,13 @@ def setupLuxonis():
 			'left_fov_deg': 69.0, # Same on 1097 and 1098OBC
 			'left_to_right_distance_cm': 7.5, # Distance between stereo cameras
 			'left_to_rgb_distance_cm': 2.0 # Currently unused
-		}}
+		}
+	}
+
+	
 
 	p = depthai.create_pipeline(config=config)
+
 	if p is None:
 		print("Error creating pipeline")
 		exit(2)
@@ -153,7 +157,7 @@ def processImage(image):
 	red_mask = cv2.dilate(red_mask,kernel)
 
 	# Determine bounding box and contours - note that top left of image is (0,0)
-	_,r_contours,_ = cv2.findContours(red_mask,cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+	r_contours,_ = cv2.findContours(red_mask,cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
 	if len(r_contours) is not 0:
 		c = max(r_contours,key=cv2.contourArea)
