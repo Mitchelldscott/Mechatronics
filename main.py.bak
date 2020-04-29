@@ -14,7 +14,6 @@ from time import sleep
 
 exitFlag = 0
 isTarget = 0
-disable_msg = [0 0]
 
 # Pan tilt Parameters
 thresh = 20 # px
@@ -23,16 +22,16 @@ fire = '3 '
 deltaP = 2 # degrees
 fire_time = 6
 servo_time = 1
-stepper_angle = 0 
+flip = 1 # 1 for upside down
+stepper_angle = 0
 
 class Target (threading.Thread):
-	def __init__(self, config, p, method,ser0,ser1):
+	def __init__(self, config, p, method,ser):
 		threading.Thread.__init__(self)
 		self.config = config
 		self.p = p
 		self.method = method
-		self.ser0 = ser0
-		self.ser1
+		self.ser = ser
 	def run(self):
 		while exitFlag is 0:
 			data = getImageData(self.p,self.config,self.method,None)
@@ -49,48 +48,56 @@ class Target (threading.Thread):
 
 				# Check if centered and Fire
 				if abs(x_pos) < thresh:
-
-					# Stop rotating navigation
-					enable = 0
-					heading = 2				
-					command = bytearray([enable, heading])
-					self.ser1.write(command)				
-						
+				
 					# Construct command
-					print("Fire!")				
+					#print(x_pos)			
+					print("Fire!")					
 					command = fire + '\n'
-					self.ser0.write(command.encode('utf-8'))
+					self.ser.write(command.encode('utf-8'))
 					init_time = time.time()
+					#inData0 = self.ser.readline()	# Only used for testing
 
 					# Keep up with data queue
 					while (time.time() - init_time < fire_time):
 						data = getImageData(self.p,self.config,self.method,2)
+						#print(time.time() - init_time, data)
 						
 					# Successful shot - reset navigation					
 					if data is None:
 						isTarget = 0
 						print('reset')
+						stepper_angle = 0
+						command = xServo + str(int(stepper_angle)) + '\n'
+						self.ser.write(command.encode('utf-8'))
+						
 						
 				# Otherwise move servo by fixed amount 
 				else:
 					init_time = time.time()
 					if x_pos > 0:
-						heading = 4
+						move = -deltaP*flip
+						stepper_angle +=move
 					else:
-						heading = 0
-					enable = 1
-					command = (bytearray([enable, heading_id])) 					
-					self.ser1.write(command)
+						move = deltaP*flip
+						stepper_angle+=move
+					command = xServo + str(int(stepper_angle)) + '\n'
+					self.ser.write(command.encode('utf-8'))
 					while (time.time() - init_time < servo_time):
 						data = getImageData(self.p,self.config,self.method,2)
+					#inData0 = self.ser.readline()		# Only used for testing			
+					#print(inData0.decode('utf-8'))		# Only used for testing
+
+
 
 class Nav (threading.Thread):
 	def __init__(self, model,camera):
 		threading.Thread.__init__(self)
+		#self.string = string 	# For testing
 		self.model = model
 		self.camera = camera
 		self.frame = PiRGBArray(self.camera, size=(640,720))
 		self.cut = [-54, -18, 18, 54]
+		#self.ser = ser
 
 	def run(self):
 		# Allocate Tensors
@@ -120,7 +127,7 @@ class Nav (threading.Thread):
 				print(heading)
 				heading_id = int(np.digitize(x=heading, bins=self.cut))	
 				print(heading_id)
-				#self.ser.write(bytearray([1, heading_id]))	
+				#self.ser.write(bytearray([1, heading_id])	
 				self.frame.truncate(0)
 				time.sleep(1)
 				
@@ -132,16 +139,16 @@ class Nav (threading.Thread):
 if __name__ == '__main__':
 	# Setup Navigation
 	#camera = PiCamera(resolution=(640,720))	
-	ser1 = serial.Serial('/dev/ttyUSB1')
+	# ser1 = serial.Serial('/dev/ttyACM1')
 	#navigation = Nav('Nav-Model-1.tflite',camera)#,ser1)
 	#navigation.start()
 	
 	# Setup Targeting
 	ser0 = serial.Serial('/dev/ttyUSB0')
-	time.sleep(2) 
+	time.sleep(2) # Initialize the pan-tilt	
 	ser0.write(bytes('y','utf-8'))
 	config, p = setupLuxonis()	
-	target = Target(config,p,'CV',ser0,ser1)
+	target = Target(config,p,'CV',ser0)
 	target.start()
 	
 
