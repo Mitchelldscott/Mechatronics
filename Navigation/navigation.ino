@@ -1,83 +1,200 @@
-// Communication dummy variable
-int byteIn = 0;
-
-// Motor parameters
 #include <AFMotor.h>
+#include "IRRL.h"
 
 #define Left 0
-#define Straight 1
+#define Forward 1
 #define Right 2
+#define Backward 3
+#define Nsamples 5
+#define Cycle_time 100 // needs to increase as more functionality is added
+/*
+#define Bin_size 4
+#define Nbins 5
+#define CstateSize 3
+#define Nstates 64
+#define Nactions 9
+#define Gamma 0.5
+#define Epsilon 4.0
+#define Decay 0.2*/
 
-// Cannot pass negatives through i2c so 
-// drive state tells arduino when to 
-// convert a speed to negative
-int drive_state = 1;
-float l_wheel_vel = 0.0;
-float r_wheel_vel = 0.0;
-int drive_enabled = 0;
-bool update_speed = false;
+// initialize Q-Learning tools
+/*QLearner learner(Gamma, Epsilon, Decay);
+int state_space[Nstates][2];
+int action_space[Nactions][2] = {{0.5, 2.0}, {0.5, 1.0}, {0.5, 0.5}, {1.0, 0.5}, {2.0, 0.5}, {1.0, 1.0}, {1.0, 2.0}, {2.0, 1.0}, {2.0, 2.0}};
+int policy[Nstates] = {0};
+float p_table[Nactions][Nstates] = {0};
 
+void init_state_space(int state_space[Nstates][2]){
+  int c_state[3] = {0,0,0};
+  for(int s = 0; s < nStates; s++){
+    memcpy(state_space[s], c_state, c_state + CstateSize);
+    c_state[0] = (c_state[0] + 1) % 4;
+    if(s >= c_state[1] * 4)
+      c_state[1] = (c_state[1] + 1) % 4;
+  }
+}
 
+int c_state2state(int c_state[CstateSize]){
+  for(int s = 0; s < Nstates; s++){
+    if(c_state[0] == state_space[s][0] && c_state[1] == state_space[s][1])
+      return s;
+  }
+  // this should never execute
+  return -1;
+}
+*/
+class IR_Sensors{
+   public:
+    float l_data[Nsamples];
+    float r_data[Nsamples];
+    int current;
+    int l_prox;
+    int r_prox;
+    float min1;
+    float min2;
+    IR_Sensors(int l,int r, float m1, float m2)
+    {
+      current = 0;
+      l_prox = l;
+      r_prox = r;
+      min1 = m1;
+      min2 = m2;
+      
+    }
+    
+    float read_sensors()
+    {
+      current = (current + 1) % Nsamples;
+      l_data[current] = analogRead(l_prox) * 5.0 / 1023;
+      r_data[current] = analogRead(r_prox) * 5.0 / 1023;
+    }
+
+    int get_adjustment(float adjustment[2]){
+      read_sensors();
+      Serial.print("Left ");
+      Serial.println(l_data[current]);
+      Serial.print("Right ");
+      Serial.println(r_data[current]);
+      int i = 0;
+      if(l_data[current] >= min2 || r_data[current] >= min2){
+        adjustment[0] = 0.5;
+        adjustment[1] = 0.5;
+        return 3;
+      }
+      if(l_data[current] >= min1){
+        adjustment[1] = 0.5;
+        i ++;
+      }
+      if(r_data[current] >= min1){
+        adjustment[0] = 0.5;
+        i++;
+      }
+      if(i == 2){
+        return 3;
+      }
+      return 1;
+    }
+    
+}irs(A5, A0, 1.2, 2.5);
+
+// object for the robot
+//  just to clean up the file
+struct Robot {
+  int drive_state;
+  float l_wheel_vel;
+  float r_wheel_vel;
+  int drive_enabled;
+  bool update_speed;
+  // IR sensor parameters
+  IR_Sensors ir;
+} bot = {1, 0.0, 0.0, 0, false, irs};
+
+void get_ir_adjustment(float adjustment[2]){
+  bot.drive_state = bot.ir.get_adjustment(adjustment);
+  bot.update_speed = true;
+}
+/*
+float reward(int state){
+    return (3 - bot.ir.l_data[bot.ir.prev]) + (3 - bot.ir.r_data[bot.ir.prev]) / 6;
+}
+*/
 // lowest power consumption frequency is 1 kHz "MOTOR12_1KHZ"
 // quietest running is 64 kHz "MOTOR12_64KHZ"
 // other options are 8 and 2 kHz
-AF_DCMotor motor_l(3, MOTOR12_1KHZ); // motor 3, frequency spec is ignored for not 1 or 2
-AF_DCMotor motor_r(4, MOTOR12_1KHZ); // motor 4
+AF_DCMotor motor_l(3, MOTOR12_64KHZ);
+AF_DCMotor motor_r(4, MOTOR12_64KHZ);
 
-
-// IR sensor parameters
-const int proxL = A0;
-const int proxR = A1;
-const int numSamples = 5;
-const float minDistance = 6; // minimum sensor distance in inches before modifying movement
-const float spFac = 0.5; // factor by which motor speed is modified
-
-float distanceL[numSamples];
-float distanceR[numSamples];
-
+float start = 0;
+float fin = 0;
+//int action = -1;
+//int state = -1;
+//int n_state = -1;
 
 void setup() 
 {
-  pinMode(proxL,INPUT);
-  pinMode(proxR,INPUT);
-  
+  //init_state_space(state_space);
+  pinMode(bot.ir.l_prox,INPUT);
+  pinMode(bot.ir.r_prox,INPUT);  
   Serial.begin(9600);
 }
 
-// incoming byte block is [enabler byte, left_wheel, right_wheel, state]
-// more/less bytes will screw with the values
-void receive(int byteCount)
+// reads [drive_enable, drive_heading] 
+//  and converts the heading into a state/wheel velocities
+void serialEvent()
 {
-  if(Serial.available() == 4)
+  if(Serial.available() == 2)
   {
-    drive_enabled = Serial.read();
-    l_wheel_vel = Serial.read();
-    r_wheel_vel = Serial.read();
-    drive_state = Serial.read();
+    bot.drive_enabled = Serial.read();
+    int heading = Serial.read();
+    switch(heading){
+      case 0:
+        bot.l_wheel_vel = 75;
+        bot.r_wheel_vel = 75;
+        bot.drive_state = 0;
+        break;
+      case 1:
+        bot.l_wheel_vel = 50;
+        bot.r_wheel_vel = 100;
+        bot.drive_state = 1;
+        break;
+      case 2:
+        bot.l_wheel_vel = 75;
+        bot.r_wheel_vel = 75;
+        bot.drive_state = 1;
+        break;
+      case 3:
+        bot.l_wheel_vel = 100;
+        bot.r_wheel_vel = 50;
+        bot.drive_state = 1;
+        break;
+      case 4:
+        bot.l_wheel_vel = 75;
+        bot.r_wheel_vel = 75;
+        bot.drive_state = 2;
+        break;
+    }
+    /*
+    Serial.print("Drive_state: ");
+    Serial.println(bot.drive_state);
+   */
+    bot.update_speed = true;
   }
-  else
-//    Serial.println("Error incorrect number of bytes on bus");
-  update_speed = true;
-//  Serial.println(drive_state);
 }
 
 void loop(){
-
-  float measL = removeMaxes(distanceL,numSamples);
-  float measR = removeMaxes(distanceR,numSamples);
-  float distL = distEst(measL);
-  float distR = distEst(measR);
-  
-  
+  start = millis();
   //changes motor directions as specified by drive_state
-  if(update_speed)
+  serialEvent();
+  float adjustment[2] = {1,1};
+  get_ir_adjustment(adjustment);
+  if(bot.update_speed)
   {
-    switch(drive_state){
+    switch(bot.drive_state){
       case Left:
         motor_l.run(BACKWARD);
         motor_r.run(FORWARD);
         break;
-      case Straight:
+      case Forward:
         motor_l.run(FORWARD);
         motor_r.run(FORWARD);
         break;
@@ -85,136 +202,39 @@ void loop(){
         motor_l.run(FORWARD);
         motor_r.run(BACKWARD);
         break;
+      case Backward:
+        motor_l.run(BACKWARD);
+        motor_r.run(BACKWARD);
     }
-    update_speed = false;
+    bot.update_speed = false;
   }
-
-
-  modifyLR(distL,distR);
-
-  
-  if(drive_enabled == 0){
+  // create complex state
+  //int c_state[CstateSize] = {(int)(bot.ir.l_data[bot.ir.prev] + 0.5), (int)(bot.ir.l_data[bot.ir.prev] + 0.5), bot.drive_state};
+  // compress into state
+  //state = n_state;
+  //n_state = c_state2state(c_state);
+  // send state to model
+  //learner.track_event(state, action, n_state, p_table);
+  // create policy
+  //learner.make_policy(reward, p_table, policy);
+  //action = policy[n_state];
+  //int adjustment[2] = {action_space[action][0], action_space[action][1]};
+  if(bot.drive_enabled == 0)
+  {
     // prevent bot from moving
+    motor_l.run(RELEASE);
+    motor_r.run(RELEASE);
     motor_l.setSpeed(0);
     motor_r.setSpeed(0);
-  }else{
+  }
+  else
+  {
     // Convert from 0-100 to 0-255
-    motor_l.setSpeed(l_wheel_vel*255/100);
-    motor_r.setSpeed(r_wheel_vel*255/100);
+    motor_l.setSpeed(bot.l_wheel_vel * 255 / 100 * adjustment[0]);
+    motor_r.setSpeed(bot.r_wheel_vel * 255 / 100 * adjustment[1]);
   }
-}
-
-
-
-
-
-
-
-
-
-void getDistance(){
-  float tempL = 0;
-  float tempR = 0;
-  for(int i = 0;i<numSamples;i++){
-    tempL = analogRead(proxL)*5.0/1023;
-    tempR = analogRead(proxR)*5.0/1023;
-    distanceL[i] = tempL;
-    distanceR[i] = tempR;
-    delay(40);
-  }
-}
-
-float removeMaxes(float arr[], int sizeArr){
-  // returns the average of the elements of arr without the 2 highest values
-  float max1 = max(arr[0],arr[1]);
-  float max2 = min(arr[0],arr[1]);
-  float temp = 0;
-  float tot = max1+max2;
-  for(int i = 2;i<sizeArr;i++){
-    temp = arr[i];
-    tot += temp;
-    if(temp>max1){
-      max2 = max1;
-      max1 = temp;
-    }else if(temp>max2){
-      max2 = temp;
-    }
-  }
-  return ((tot-max1-max2)/(sizeArr-2));
-}
-
-float distEst(float meas){
-  // Voltage to inch conversion for IR Proximity Sensor - Sharp GP2Y0A21YK
-  // Effective in the 3" to 10" region (2.94V to 1.17V)
-  // Approaching closer than 3" reports longer distances than actual
-  // Voltage peaks somewhere in the 2.0" to 2.5" range
-  return 11.46598*pow(meas,-1.26165);
-}
-
-
-int modifyLR(float distL, float distR){
-//  returns 1 if decreasing L, -1 if decreasing R, 0 if not modifying
-//  2 if increasing L, -2 if increasing R. (magnitude changes, not direction)
-//  only increases wheels if they are at 0 initially and are required for making a turn
-//  float l_wheel_vel = 0.0;
-//  float r_wheel_vel = 0.0;
-//  float minDistance;
-//  int drive_state;
-//  const float spFac = 0.5;
-
-  if((distL>minDistance) && (distR>minDistance)){
-    // no collision imminent
-    return 0;
-  }
-
-  // assumes all wheel velocities are non-zero
-  if(distR<=minDistance){
-    // right side too close
-    if(drive_state==Left){
-      r_wheel_vel = r_wheel_vel*spFac;
-      return -1;
-    }else if(drive_state==Straight){
-      l_wheel_vel = l_wheel_vel*spFac;
-      return 1;
-    }else if(drive_state==Right){
-      r_wheel_vel = r_wheel_vel*spFac;
-      return -1;
-    }    
-  }else{
-    // left side too close
-    if(drive_state==Left){
-      l_wheel_vel = l_wheel_vel*spFac;
-      return 1;
-    }else if(drive_state==Straight){
-      r_wheel_vel = r_wheel_vel*spFac;
-      return -1;
-    }else if(drive_state==Right){
-      l_wheel_vel = l_wheel_vel*spFac;
-      return 1;
-    }
-  }
-
-  // unknown case, here for robustness
-  return 0;
-
-//  // framework for handling cases with one or both wheel velocities == 0
-//  if(distR<=minDistance){
-//    if(r_wheel_vel==0){
-//      
-//      return 0;
-//    }else if(l_wheel_vel==0){
-//      // need to move the left wheel to make the turn
-//      if(drive_state==Straight){
-//        motor_l.run(BACKWARD);
-//      }
-//      l_wheel_vel = 40;
-//      return 2;
-//    }else{
-//      
-//    }
-//  }else{
-//    
-//  }
-  
-
+  fin = millis();
+  float duration = fin - start;
+  float spare_t = max(0, duration - Cycle_time);
+  delay(spare_t);
 }
