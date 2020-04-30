@@ -6,20 +6,20 @@
 
 // Initialize Motor Control
 Adafruit_MotorShield AFMS = Adafruit_MotorShield(); // Create the motor shield object with the default I2C address
-Adafruit_StepperMotor *myStepper = AFMS.getStepper(200, 2); // Connect a stepper motor with 200 steps per revolution (1.8 degree) to motor port #2 (M3 and M4)
-Servo myservo;  // create servo object to control a servo
+//Adafruit_StepperMotor *myStepper = AFMS.getStepper(200, 2); // Connect a stepper motor with 200 steps per revolution (1.8 degree) to motor port #2 (M3 and M4)
+//Servo myservo;  // create servo object to control a servo
 Adafruit_DCMotor *myFlywheel = AFMS.getMotor(1); // Flywheel motor attached to M1
 Adafruit_DCMotor *myLoader = AFMS.getMotor(2); // Loading motor attached to M1
 
 
 // Global Variable Definition
-long stepperPos;
-long maxStepperAngle = 135;
-int servoAngle;
-int servoPos;
-int servoOffset = 37;
-long steps = 200; // 200 steps per rev
-const int REED_PIN = 9; // Shield v2.3 unused servo pin, Pin 9
+//long stepperPos;
+//long maxStepperAngle = 135;
+//int servoAngle;
+//int servoPos;
+//int servoOffset = 37;
+//long steps = 200; // 200 steps per rev
+//const int REED_PIN = 9; // Shield v2.3 unused servo pin, Pin 9
 
 // Data Processing
 String data = ""; 
@@ -46,47 +46,48 @@ void setup() {
   AFMS.begin();  // create with the default frequency 1.6KHz
 
   // Stepper Motor Initialization
-  myStepper->setSpeed(10);  // 10 rpm  
+  //myStepper->setSpeed(10);  // 10 rpm  
   
   // Servo Motor Initialization
-  myservo.attach(10);  // attaches the servo on pin x to the servo object
+  //myservo.attach(10);  // attaches the servo on pin x to the servo object
   //servoMove(0);
-  myservo.write(servoOffset);
-  servoPos = 0;
+  //myservo.write(servoOffset);
+  //servoPos = 0;
 
   // Flywheel Motor Initialization
   myFlywheel->setSpeed(127);
 
   //Loading Motor Initialization
-  myLoader->setSpeed(127);
-
+  //myLoader->setSpeed(127);
+  myLoader->setSpeed(50);
+  
   // Reed Switch Initialization
-  pinMode(REED_PIN, INPUT_PULLUP);
+  //pinMode(REED_PIN, INPUT_PULLUP);
 
   // Stepper Absolute Positioning
   // Manually set the Pan-Tilt mechanism to what appears to be the 0 point
   
   //Serial.println("Searching for Pan Absolute Zero...");
-  stepperPos = 0;
-  stepperMove(-30);
-  int overturn = 0;
-  while (true) {
-    stepperMove(stepperPos + 2);
+  //stepperPos = 0;
+  //stepperMove(-30);
+  //int overturn = 0;
+  //while (true) {
+    //stepperMove(stepperPos + 2);
     //Serial.println(stepperPos);
-    if (digitalRead(REED_PIN) == LOW) {
-      stepperPos = 0;
+    //if (digitalRead(REED_PIN) == LOW) {
+      //stepperPos = 0;
       //Serial.println("Pan Absolute Zero Identified");
-      break;
-    } 
-    if (overturn > 35) {
+      //break;
+    //} 
+    //if (overturn > 35) {
       //Serial.println("Error: Pan Zero Could Not Be Identified");
-      while (true) {
+      //while (true) {
         // Do not run loop() program
-      }
-    }
-    overturn++;
-    delay(250);
-  }
+      //}
+    //}
+    //overturn++;
+    //delay(250);
+  //}
 
 }
 
@@ -96,7 +97,7 @@ void loop() {
       num = "";
       
       // motor type
-      num = data[0]; 
+      num = num + data[0]; 
       motorType = num.toInt();
       num = "";
 
@@ -104,13 +105,15 @@ void loop() {
       for (int i = 2; i < sizeof(data); i++) {
         num = num + data[i];
       }
-      setpoint = num.toInt();
+      //setpoint = num.toInt();
+      Serial.println(motorType);
 
-      if (motorType == 0) { // stepper
-        stepperMove(setpoint);
-      } else if (motorType == 1) { // servo
-        servoMove(setpoint);
-      } else if (motorType == 3) { // firing mechanism
+      //if (motorType == 0) { // stepper
+        //stepperMove(setpoint);
+      //} else if (motorType == 1) { // servo
+        //servoMove(setpoint);
+      //} else if (motorType == 3) { // firing mechanism
+      if (motorType == 3) { // firing mechanism
         firingMechanism();
       } else {
         //invalid input
@@ -145,6 +148,7 @@ void loop() {
   }*/
 }
 
+/*
 void servoMove(int angleIn) {
   //servoAngle = servoOffset + angleIn; // map to actual angles given servo offset
   if (angleIn >= -30 && angleIn <= 30) { // requested angle in bounds
@@ -227,24 +231,27 @@ void stepperMove(long angleIn) {
 
   delay(100);
 }
-
+*/
 void firingMechanism () {  /////////////////////REQUIRES FURTHER DEVELOPMENT
   Serial.println("Check");
   myLoader->run(BACKWARD);
-  delay(710);
+  //delay(710);
+  delay(1600);
   myLoader->run(RELEASE);
   delay(2000);
   myLoader->run(FORWARD);
-  delay(360);
-  myLoader->run(RELEASE);
-  /*myLoader->run(BACKWARD); // Move loader to rear (permits projectile loading)
-  delay(1650);
-  myLoader->run(RELEASE); // Switch loader directions
-  delay(100);
+  //delay(360);
   myFlywheel->run(FORWARD); // Spool up flywheel
-  delay(1000);
-  myLoader->run(FORWARD); // Move loader to front (loads projectile)
-  delay(1400);
+  delay(1600);
+  myLoader->run(RELEASE);
+  //myLoader->run(BACKWARD); // Move loader to rear (permits projectile loading)
+  //delay(1650);
+  //myLoader->run(RELEASE); // Switch loader directions
+  //delay(100);
+  //myFlywheel->run(FORWARD); // Spool up flywheel
+  //delay(1000);
+  //myLoader->run(FORWARD); // Move loader to front (loads projectile)
+  delay(500);
   myLoader->run(RELEASE); // Kill loader
   myFlywheel->run(RELEASE); // Kill flywheel*/
 }

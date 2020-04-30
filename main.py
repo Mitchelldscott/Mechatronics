@@ -14,7 +14,7 @@ from time import sleep
 
 exitFlag = 0
 isTarget = 0
-disable_msg = [0 0]
+disable_msg = [0, 0]
 
 # Pan tilt Parameters
 thresh = 20 # px
@@ -32,7 +32,7 @@ class Target (threading.Thread):
 		self.p = p
 		self.method = method
 		self.ser0 = ser0
-		self.ser1
+		self.ser1 = ser1
 	def run(self):
 		while exitFlag is 0:
 			data = getImageData(self.p,self.config,self.method,None)
@@ -79,7 +79,7 @@ class Target (threading.Thread):
 					else:
 						heading = 0
 					enable = 1
-					command = (bytearray([enable, heading_id])) 					
+					command = (bytearray([enable, heading])) 					
 					self.ser1.write(command)
 					while (time.time() - init_time < servo_time):
 						data = getImageData(self.p,self.config,self.method,2)
@@ -132,12 +132,12 @@ class Nav (threading.Thread):
 if __name__ == '__main__':
 	# Setup Navigation
 	#camera = PiCamera(resolution=(640,720))	
-	ser1 = serial.Serial('/dev/ttyUSB1')
+	ser1 = serial.Serial('/dev/ttyUSB0')
 	#navigation = Nav('Nav-Model-1.tflite',camera)#,ser1)
 	#navigation.start()
 	
 	# Setup Targeting
-	ser0 = serial.Serial('/dev/ttyUSB0')
+	ser0 = serial.Serial('/dev/ttyUSB1')
 	time.sleep(2) 
 	ser0.write(bytes('y','utf-8'))
 	config, p = setupLuxonis()	
