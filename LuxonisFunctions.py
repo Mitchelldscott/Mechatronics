@@ -3,7 +3,6 @@ import cv2
 import depthai
 import consts.resource_paths
 import time
-#from time import sleep
 import os
 
 # Functions for Luxonis functionality
@@ -11,7 +10,7 @@ min_height = 30
 min_width = 30
 
 # Determine mask sensitivity
-r_sensitivity = 10
+r_sensitivity = 5
 
 def setupLuxonis():
 	if not depthai.init_device(consts.resource_paths.device_cmd_fpath):
